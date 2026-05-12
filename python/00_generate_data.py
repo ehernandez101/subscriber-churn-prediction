@@ -1,78 +1,74 @@
-import pandas as pd
+import pandas as pd 
 import numpy as np
+from pathlib import Path
 
 np.random.seed(42)
 
-num_users = 5000
+ROOT = Path(__file__).resolve().parents[1]
+DATA = ROOT / "data"
+DATA.mkdir(parents=True, exist_ok=True)
 
-subscription_types = ['basic', 'standard', 'premium']
-devices = ['mobile', 'tv', 'web', 'tablet']
-regions = ['US', 'Canada', 'UK', 'LATAM']
+n = 10000
 
-data = {
-    'user_id': range(1, num_users + 1),
+plans = ["Basic", "Standard", "Premium"]
+devices = ["Mobile", "TV", "Tablet", "Desktop"]
+regions = ["North America", "Europe", "South America", "Asia"]
 
-    'subscription_type': np.random.choice(
-        subscription_types,
-        num_users,
-        p=[0.4, 0.35, 0.25]
+df = pd.DataFrame({
+    "user_id": range(1, n + 1),
+
+    "subscription_plan": np.random.choice(
+        plans,
+        n,
+        p=[0.4, 0.4, 0.2]
     ),
 
-    'device_type': np.random.choice(
-        devices,
-        num_users,
-        p=[0.45, 0.25, 0.20, 0.10]
-    ),
+    "device": np.random.choice(devices, n),
 
-    'region': np.random.choice(
-        regions,
-        num_users
-    ),
+    "region": np.random.choice(regions, n),
 
-    'monthly_watch_minutes': np.random.normal(
-        2200,
-        700,
-        num_users
-    ).astype(int),
+    "watch_minutes": np.random.normal(120, 40, n).clip(5),
 
-    'login_frequency': np.random.randint(
-        1,
-        30,
-        num_users
-    ),
+    "login_frequency": np.random.normal(18, 7, n).clip(1),
 
-    'days_since_last_login': np.random.randint(
-        0,
-        45,
-        num_users
-    ),
+    "days_inactive": np.random.normal(10, 12, n).clip(0),
 
-    'tenure_months': np.random.randint(
-        1,
-        60,
-        num_users
-    ),
+    "support_tickets": np.random.poisson(1.2, n),
 
-    'support_tickets': np.random.poisson(
-        1.2,
-        num_users
-    )
-}
+    "tenure_months": np.random.randint(1, 60, n)
+})
 
-df = pd.DataFrame(data)
+# --------------------------
+# Churn Logic
+# --------------------------
 
-df['monthly_watch_minutes'] = df['monthly_watch_minutes'].clip(lower=100)
+risk_score = (
+    (df["days_inactive"] * 0.35)
+    - (df["watch_minutes"] * 0.015)
+    - (df["login_frequency"] * 0.2)
+    + (df["support_tickets"] * 1.5)
+)
 
-df['churned'] = np.where(
-    (
-        (df['days_since_last_login'] > 20) &
-        (df['monthly_watch_minutes'] < 1500)
-    ),
+probability = 1 / (1 + np.exp(-risk_score / 10))
+
+df["churn_probability"] = probability.round(3)
+
+df["churned"] = np.where(
+    df["churn_probability"] > 0.5,
     1,
     0
 )
 
-df.to_csv('data/subscriber_churn_dataset.csv', index=False)
+# Risk Segments
+df["risk_segment"] = pd.cut(
+    df["churn_probability"],
+    bins=[0, 0.3, 0.6, 1],
+    labels=["Low", "Medium", "High"]
+)
 
-print("Dataset created successfully.")
+output = DATA / "subscriber_churn_dataset.csv"
+
+df.to_csv(output, index=False)
+
+print(f"✅ Dataset created: {output}")
 print(df.head())
