@@ -16,31 +16,15 @@ regions = ["North America", "Europe", "South America", "Asia"]
 
 df = pd.DataFrame({
     "user_id": range(1, n + 1),
-
-    "subscription_plan": np.random.choice(
-        plans,
-        n,
-        p=[0.4, 0.4, 0.2]
-    ),
-
-    "device": np.random.choice(devices, n),
-
-    "region": np.random.choice(regions, n),
-
+    "subscription_plan": np.random.choice(plans, n, p=[0.42, 0.38, 0.20]),
+    "device": np.random.choice(devices, n, p=[0.45, 0.30, 0.10, 0.15]),
+    "region": np.random.choice(regions, n, p=[0.45, 0.25, 0.15, 0.15]),
     "watch_minutes": np.random.normal(120, 40, n).clip(5),
-
     "login_frequency": np.random.normal(18, 7, n).clip(1),
-
     "days_inactive": np.random.normal(10, 12, n).clip(0),
-
     "support_tickets": np.random.poisson(1.2, n),
-
     "tenure_months": np.random.randint(1, 60, n)
 })
-
-# --------------------------
-# Churn Logic
-# --------------------------
 
 risk_score = (
     (df["days_inactive"] * 0.35)
@@ -49,17 +33,9 @@ risk_score = (
     + (df["support_tickets"] * 1.5)
 )
 
-probability = 1 / (1 + np.exp(-risk_score / 10))
+df["churn_probability"] = (1 / (1 + np.exp(-risk_score / 10))).round(3)
+df["churned"] = np.where(df["churn_probability"] > 0.5, 1, 0)
 
-df["churn_probability"] = probability.round(3)
-
-df["churned"] = np.where(
-    df["churn_probability"] > 0.5,
-    1,
-    0
-)
-
-# Risk Segments
 df["risk_segment"] = pd.cut(
     df["churn_probability"],
     bins=[0, 0.3, 0.6, 1],
@@ -67,7 +43,6 @@ df["risk_segment"] = pd.cut(
 )
 
 output = DATA / "subscriber_churn_dataset.csv"
-
 df.to_csv(output, index=False)
 
 print(f"✅ Dataset created: {output}")
