@@ -1,74 +1,89 @@
-import pandas as pd
+import pandas as pd 
 import matplotlib.pyplot as plt
+from pathlib import Path
 
-# Load dataset
-df = pd.read_csv('data/subscriber_churn_dataset.csv')
+ROOT = Path(__file__).resolve().parents[1]
+DATA = ROOT / "data"
+VISUALS = ROOT / "visuals"
+VISUALS.mkdir(parents=True, exist_ok=True)
 
-# KPI calculations
-total_users = len(df)
-churn_rate = df['churned'].mean() * 100
-avg_watch = df['monthly_watch_minutes'].mean()
+df = pd.read_csv(DATA / "subscriber_churn_dataset.csv")
 
-print(f"Total Users: {total_users}")
-print(f"Churn Rate: {churn_rate:.2f}%")
-print(f"Average Watch Minutes: {avg_watch:.0f}")
+total_subscribers = len(df)
+churn_rate = df["churned"].mean()
+retention_rate = 1 - churn_rate
+avg_watch_minutes = df["watch_minutes"].mean()
 
-# -----------------------------
-# Churn by Subscription Plan
-# -----------------------------
+print("===== KPI SUMMARY =====")
+print(f"Total Subscribers: {total_subscribers:,}")
+print(f"Churn Rate: {churn_rate:.2%}")
+print(f"Retention Rate: {retention_rate:.2%}")
+print(f"Avg Watch Minutes: {avg_watch_minutes:.1f}")
 
-plan_churn = (
-    df.groupby('subscription_type')['churned']
-    .mean()
-    .sort_values()
-)
+# Churn by Plan
+churn_by_plan = df.groupby("subscription_plan")["churned"].mean().reset_index()
 
-plt.figure(figsize=(8,5))
-plan_churn.plot(kind='bar')
-
-plt.title('Churn Rate by Subscription Plan')
-plt.ylabel('Churn Rate')
-plt.xlabel('Subscription Plan')
-
+plt.figure(figsize=(8, 5))
+plt.bar(churn_by_plan["subscription_plan"], churn_by_plan["churned"])
+plt.title("Churn Rate by Subscription Plan")
+plt.xlabel("Subscription Plan")
+plt.ylabel("Churn Rate")
+plt.ylim(0, 1)
 plt.tight_layout()
+plt.savefig(VISUALS / "churn_by_plan.png", dpi=150)
+plt.close()
 
-plt.savefig('visuals/churn_by_plan.png')
+# Churn by Device
+churn_by_device = df.groupby("device")["churned"].mean().reset_index()
 
-# -----------------------------
-# Device Usage
-# -----------------------------
-
-device_counts = df['device_type'].value_counts()
-
-plt.figure(figsize=(8,5))
-device_counts.plot(kind='bar')
-
-plt.title('Sessions by Device Type')
-plt.ylabel('Users')
-plt.xlabel('Device')
-
+plt.figure(figsize=(8, 5))
+plt.bar(churn_by_device["device"], churn_by_device["churned"])
+plt.title("Churn Rate by Device")
+plt.xlabel("Device")
+plt.ylabel("Churn Rate")
+plt.ylim(0, 1)
 plt.tight_layout()
+plt.savefig(VISUALS / "churn_by_device.png", dpi=150)
+plt.close()
 
-plt.savefig('visuals/device_usage.png')
+# Churn by Region
+churn_by_region = df.groupby("region")["churned"].mean().reset_index()
 
-# -----------------------------
-# Watch Minutes vs Churn
-# -----------------------------
-
-plt.figure(figsize=(8,5))
-
-plt.scatter(
-    df['monthly_watch_minutes'],
-    df['days_since_last_login'],
-    alpha=0.4
-)
-
-plt.title('Watch Minutes vs Inactivity')
-plt.xlabel('Monthly Watch Minutes')
-plt.ylabel('Days Since Last Login')
-
+plt.figure(figsize=(8, 5))
+plt.bar(churn_by_region["region"], churn_by_region["churned"])
+plt.title("Churn Rate by Region")
+plt.xlabel("Region")
+plt.ylabel("Churn Rate")
+plt.xticks(rotation=30)
+plt.ylim(0, 1)
 plt.tight_layout()
+plt.savefig(VISUALS / "churn_by_region.png", dpi=150)
+plt.close()
 
-plt.savefig('visuals/watch_vs_inactivity.png')
+# Watch Minutes: Churned vs Retained
+watch_by_churn = df.groupby("churned")["watch_minutes"].mean().reset_index()
+watch_by_churn["status"] = watch_by_churn["churned"].map({0: "Retained", 1: "Churned"})
 
-print("Charts created successfully.")
+plt.figure(figsize=(8, 5))
+plt.bar(watch_by_churn["status"], watch_by_churn["watch_minutes"])
+plt.title("Avg Watch Minutes: Retained vs Churned")
+plt.xlabel("Subscriber Status")
+plt.ylabel("Avg Watch Minutes")
+plt.tight_layout()
+plt.savefig(VISUALS / "watch_minutes_retained_vs_churned.png", dpi=150)
+plt.close()
+
+# Risk Segment Count
+risk_counts = df["risk_segment"].value_counts().reindex(["Low", "Medium", "High"]).reset_index()
+risk_counts.columns = ["risk_segment", "subscribers"]
+
+plt.figure(figsize=(8, 5))
+plt.bar(risk_counts["risk_segment"], risk_counts["subscribers"])
+plt.title("Subscriber Churn Risk Segments")
+plt.xlabel("Risk Segment")
+plt.ylabel("Subscriber Count")
+plt.tight_layout()
+plt.savefig(VISUALS / "churn_risk_segments.png", dpi=150)
+plt.close()
+
+print("✅ Churn analysis visuals created.")
